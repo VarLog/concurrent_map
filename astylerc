@@ -1,0 +1,51 @@
+#
+# Artistic Style options file.
+# See <http://astyle.sourceforge.net/astyle.html> and `astyle -h` for more information.
+#
+
+# Brackets
+--style=attach
+
+# Indent
+--indent=spaces=4
+
+# Bracket Modify Options
+--attach-namespaces
+--attach-classes
+--attach-inlines
+--attach-extern-c
+
+# Indentation Options
+--indent-switches
+--indent-modifiers
+#--indent-preproc-block
+--indent-preproc-define
+--indent-col1-comments
+
+# Padding Options
+--break-blocks
+--pad-oper
+--pad-paren-in
+#--delete-empty-lines
+--align-pointer=name
+--align-reference=name
+
+# Formatting Options
+--break-closing-brackets
+--add-brackets
+--convert-tabs
+--close-templates
+--max-code-length=140
+--break-after-logical
+
+# Objective‑C Options
+--align-method-colon
+--unpad-method-prefix
+--pad-method-colon=none
+
+# Line endings
+--lineend=linux
+
+# Preserve the original file's date and time modified
+--preserve-date
+
