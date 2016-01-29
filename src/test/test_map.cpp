@@ -88,3 +88,49 @@ TEST_F( MapTest, should_be_thread_safe ) {
     auto actual2 = map_->get( key2 );
     ASSERT_STREQ( expected_value2.c_str(), actual2.c_str() );
 }
+
+TEST_F( MapTest, should_provide_exclusive_access_get ) {
+    auto key = std::string( "key" );
+    auto value = std::string( "value" );
+
+    auto access_token = map_->get_exclusive_access( key );
+
+    auto fut = std::async( std::launch::async, [this, key] {
+        map_->get( key );
+    } );
+
+    auto status = fut.wait_for( std::chrono::milliseconds( 500 ) );
+    ASSERT_TRUE( status == std::future_status::timeout );
+
+    map_->set( key, value );
+
+    auto actual = map_->get( key );
+
+    ASSERT_STREQ( value.c_str(), actual.c_str() );
+
+    /// release token to avoid a deadlock into the destructor of the std::future from std::async()
+    access_token.release();
+}
+
+TEST_F( MapTest, should_provide_exclusive_access_set ) {
+    auto key = std::string( "key" );
+    auto value = std::string( "value" );
+
+    auto access_token = map_->get_exclusive_access( key );
+
+    auto fut = std::async( std::launch::async, [this, key] {
+        map_->set( key, "bar" );
+    } );
+
+    auto status = fut.wait_for( std::chrono::milliseconds( 500 ) );
+    ASSERT_TRUE( status == std::future_status::timeout );
+
+    map_->set( key, value );
+
+    auto actual = map_->get( key );
+
+    ASSERT_STREQ( value.c_str(), actual.c_str() );
+
+    /// release token to avoid a deadlock into the destructor of the std::future from std::async()
+    access_token.release();
+}
