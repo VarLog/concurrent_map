@@ -38,7 +38,7 @@ TEST_F( MapTest, should_contains_value ) {
 
     auto actual = map_->get( key );
 
-    ASSERT_STREQ( value.c_str(), actual.c_str() );
+    EXPECT_STREQ( value.c_str(), actual.c_str() );
 }
 
 TEST_F( MapTest, should_emplace_new_value_if_not_exist ) {
@@ -47,7 +47,7 @@ TEST_F( MapTest, should_emplace_new_value_if_not_exist ) {
 
     auto actual = map_->get( key );
 
-    ASSERT_STREQ( expected_value.c_str(), actual.c_str() );
+    EXPECT_STREQ( expected_value.c_str(), actual.c_str() );
 }
 
 TEST_F( MapTest, should_be_thread_safe ) {
@@ -83,10 +83,10 @@ TEST_F( MapTest, should_be_thread_safe ) {
     fut2.wait();
 
     auto actual1 = map_->get( key1 );
-    ASSERT_STREQ( expected_value1.c_str(), actual1.c_str() );
+    EXPECT_STREQ( expected_value1.c_str(), actual1.c_str() );
 
     auto actual2 = map_->get( key2 );
-    ASSERT_STREQ( expected_value2.c_str(), actual2.c_str() );
+    EXPECT_STREQ( expected_value2.c_str(), actual2.c_str() );
 }
 
 TEST_F( MapTest, should_provide_exclusive_access_get ) {
@@ -100,13 +100,13 @@ TEST_F( MapTest, should_provide_exclusive_access_get ) {
     } );
 
     auto status = fut.wait_for( std::chrono::milliseconds( 500 ) );
-    ASSERT_TRUE( status == std::future_status::timeout );
+    EXPECT_TRUE( status == std::future_status::timeout );
 
     map_->set( key, value );
 
     auto actual = map_->get( key );
 
-    ASSERT_STREQ( value.c_str(), actual.c_str() );
+    EXPECT_STREQ( value.c_str(), actual.c_str() );
 
     /// release token to avoid a deadlock into the destructor of the std::future from std::async()
     access_token.release();
@@ -123,13 +123,13 @@ TEST_F( MapTest, should_provide_exclusive_access_set ) {
     } );
 
     auto status = fut.wait_for( std::chrono::milliseconds( 500 ) );
-    ASSERT_TRUE( status == std::future_status::timeout );
+    EXPECT_TRUE( status == std::future_status::timeout );
 
     map_->set( key, value );
 
     auto actual = map_->get( key );
 
-    ASSERT_STREQ( value.c_str(), actual.c_str() );
+    EXPECT_STREQ( value.c_str(), actual.c_str() );
 
     /// release token to avoid a deadlock into the destructor of the std::future from std::async()
     access_token.release();
