@@ -2,9 +2,16 @@
 #include <condition_variable>
 #include <map>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 
 namespace concurrent {
+
+class invalid_access_exception : public std::runtime_error {
+  public:
+    invalid_access_exception( const std::string &reason ) : std::runtime_error( reason ) {};
+};
+
 class map {
 
   public:
@@ -87,16 +94,13 @@ class map {
         if ( map_sync_.count( key ) ) {
             auto &value_sync = map_sync_.at( key );
 
-            while ( value_sync->is_locked ) {
-                if ( value_sync->thread_id == std::this_thread::get_id() ) {
-                    break;
-                }
-
-                value_sync->cond_var.wait( lock );
+            if ( value_sync->is_locked && value_sync->thread_id == std::this_thread::get_id() ) {
+                map_[key] = std::move( value );
+                return;
             }
         }
 
-        map_[key] = std::move( value );
+        throw invalid_access_exception( "Only the thread that has an exclusive access can modify an entry of the map" );
     }
 
   private:
@@ -128,5 +132,6 @@ class map {
     std::mutex map_mutex_;
 
 };
+
 }  // namespace concurrent
 

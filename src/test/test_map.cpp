@@ -34,11 +34,19 @@ TEST_F( MapTest, should_contains_value ) {
     auto key = std::string( "key" );
     auto value = std::string( "value" );
 
+    auto access_token = map_->get_exclusive_access( key );
     map_->set( key, value );
 
     auto actual = map_->get( key );
 
     EXPECT_STREQ( value.c_str(), actual.c_str() );
+}
+
+TEST_F( MapTest, should_allow_to_modify_only_if_exclusive_access ) {
+    auto key = std::string( "key" );
+    auto value = std::string( "value" );
+
+    EXPECT_THROW(map_->set( key, value ), concurrent::invalid_access_exception);
 }
 
 TEST_F( MapTest, should_emplace_new_value_if_not_exist ) {
@@ -62,9 +70,17 @@ TEST_F( MapTest, should_be_thread_safe ) {
         auto i = 100;
 
         while( i-- ) {
-            map_->set( std::to_string( i ), ss.str() );
+            {
+                auto key_i = std::to_string( i );
 
-            map_->set( key, value );
+                auto access_token = map_->get_exclusive_access( key_i );
+                map_->set( key_i, ss.str() );
+            }
+
+            {
+                auto access_token = map_->get_exclusive_access( key );
+                map_->set( key, value );
+            }
 
             std::this_thread::sleep_for( std::chrono::milliseconds( std::rand() % 10 ) );
         }
@@ -119,6 +135,7 @@ TEST_F( MapTest, should_provide_exclusive_access_set ) {
     auto access_token = map_->get_exclusive_access( key );
 
     auto fut = std::async( std::launch::async, [this, key] {
+        auto access_token = map_->get_exclusive_access( key );
         map_->set( key, "bar" );
     } );
 
@@ -144,6 +161,7 @@ TEST_F( MapTest, should_provide_exclusive_access_different_keys ) {
     auto access_token = map_->get_exclusive_access( key1 );
 
     auto fut = std::async( std::launch::async, [this, key2, value2] {
+        auto access_token = map_->get_exclusive_access( key2 );
         map_->set( key2, value2 );
     } );
 
@@ -174,8 +192,16 @@ TEST_F( MapTest, should_provide_exclusive_access_many_keys ) {
     auto access_token2 = map_->get_exclusive_access( key2 );
 
     auto fut = std::async( std::launch::async, [this, key1, key2, value2] {
-        map_->set( key1, value2 );
-        map_->set( key2, value2 );
+        {
+            auto access_token = map_->get_exclusive_access( key1 );
+            map_->set( key1, value2 );
+        }
+
+        {
+            auto access_token = map_->get_exclusive_access( key2 );
+            map_->set( key2, value2 );
+        }
+
     } );
 
     auto status = fut.wait_for( std::chrono::milliseconds( 500 ) );
