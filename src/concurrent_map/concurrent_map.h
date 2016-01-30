@@ -81,8 +81,24 @@ class map {
         if ( map_sync_.count( key ) ) {
             auto &value_sync = map_sync_[key];
 
+            /// If current thread already have exclusive access
+            if ( value_sync->is_locked && value_sync->thread_id == std::this_thread::get_id() ) {
+
+                if( auto token = value_sync->token_weak.lock() ) {
+                    return token;  /// \< Return the existed token if it is alive
+                }
+                else {
+                    /// Otherwise create a new one
+                    auto token_new = std::make_shared<access_token>( this, key );
+                    value_sync->token_weak = token_new;
+
+                    return token_new;
+                }
+            }
+
+            /// Wait
             while ( value_sync->is_locked ) {
-                value_sync->cond_var.wait( lock );  /// \< \fixme Avoid deadlock if it is the same thread
+                value_sync->cond_var.wait( lock );
             }
         }
         else {
@@ -103,21 +119,24 @@ class map {
         std::unique_lock<std::mutex> lock( map_mutex_ );
 
         if ( map_sync_.count( key ) ) {
-            auto &value_sync = map_sync_.at( key );
+            auto &value_sync = map_sync_[key];
 
-            while ( value_sync->is_locked ) {
-                if ( value_sync->thread_id == std::this_thread::get_id() ) {
-                    break;
+            /// If some other thread already have exclusive access
+            if ( value_sync->is_locked && value_sync->thread_id != std::this_thread::get_id() ) {
+
+                /// Wait
+                while ( value_sync->is_locked ) {
+                    value_sync->cond_var.wait( lock );
                 }
-
-                value_sync->cond_var.wait( lock );
             }
+
         }
 
         if ( map_.count( key ) ) {
-            return map_.at( key );
+            return map_[key];
         }
 
+        /// Create a new default value if it is not existed into the map
         map_[key] = value_t();
         return map_[key];
     }
@@ -130,6 +149,7 @@ class map {
         if ( map_sync_.count( key ) ) {
             auto &value_sync = map_sync_[key];
 
+            /// Check exclusive access
             if ( value_sync->is_locked && value_sync->thread_id == std::this_thread::get_id() ) {
                 map_[key] = std::move( value );
                 return;

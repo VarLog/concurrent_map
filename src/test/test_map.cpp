@@ -248,3 +248,12 @@ TEST_F( MapTest, access_token_can_live_longer_than_map ) {
 
     EXPECT_NO_THROW( access_token->release() );
 }
+
+TEST_F( MapTest, should_provide_exclusive_access_many_times ) {
+    auto key = std::string( "key" );
+
+    auto access_token1 = map_->get_exclusive_access( key );
+    auto access_token2 = map_->get_exclusive_access( key );
+
+    EXPECT_TRUE( access_token1 == access_token2 );
+}
