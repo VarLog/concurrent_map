@@ -19,9 +19,14 @@ class map {
     using value_t = std::string;
 
 
+    /// \brief RAII class to provide exclusive access to the entry into the map.
     class access_token {
       private:
-        map *map_;   /// \< \fixme get rid raw pointer
+
+        /// \fixme get rid the raw pointer.
+        /// It will be possible if map inherited from std::enable_shared_from_this<map>.
+        map *map_;
+
         map::key_t key_;
 
         bool was_resealed_ = false;
@@ -34,21 +39,24 @@ class map {
             key_( key ),
             is_valid_( true ) {
         }
-        access_token( const access_token & ) = delete;
+        access_token( const access_token & ) = delete;  /// \< \fixme cannot be copyable because of the raw pointer *map_.
         access_token( access_token && ) = default;
 
+        /// \brief Release ownership of the entry.
         void release() {
             if ( !was_resealed_ && is_valid_ ) {
-                map_->release_exclusive_token( key_ );
+                map_->release_exclusive_access( key_ );
                 was_resealed_ = true;
             }
         }
 
+        /// \brief Invalidate the token. It is necessary when the map destroyed.
         void reset() {
             map_ = nullptr;
             is_valid_ = false;
         }
 
+        /// \brief Release in the destructor. RAII.
         ~access_token() {
             release();
         }
@@ -58,6 +66,7 @@ class map {
     using access_token_weak_ptr_t = std::weak_ptr<access_token>;
 
     ~map() {
+        /// We must invalidate all access tokens because they contain raw pointers to this map.
         std::for_each( map_sync_.begin(), map_sync_.end(), []( std::pair<const key_t, synchronized_value_ptr_t> &p ) {
             if( auto token = p.second->token_weak.lock() ) {
                 token->reset();
@@ -65,14 +74,15 @@ class map {
         } );
     }
 
+    /// \brief Provide exclusive access to the entry with specific key by access_token.
     access_token_ptr_t get_exclusive_access( const key_t &key ) {
         std::unique_lock<std::mutex> lock( map_mutex_ );
 
         if ( map_sync_.count( key ) ) {
-            auto &value_sync = map_sync_.at( key );
+            auto &value_sync = map_sync_[key];
 
             while ( value_sync->is_locked ) {
-                value_sync->cond_var.wait( lock );
+                value_sync->cond_var.wait( lock );  /// \< \fixme Avoid deadlock if it is the same thread
             }
         }
         else {
@@ -88,6 +98,7 @@ class map {
         return token;
     }
 
+    /// \brief Get a value of the entry by key.
     value_t get( const key_t &key ) {
         std::unique_lock<std::mutex> lock( map_mutex_ );
 
@@ -111,11 +122,13 @@ class map {
         return map_[key];
     }
 
+    /// \brief Set the value to the entry by key.
+    /// \note Only the thread that has an exclusive access can modify an entry of the map.
     void set( const key_t &key, value_t value ) {
         std::unique_lock<std::mutex> lock( map_mutex_ );
 
         if ( map_sync_.count( key ) ) {
-            auto &value_sync = map_sync_.at( key );
+            auto &value_sync = map_sync_[key];
 
             if ( value_sync->is_locked && value_sync->thread_id == std::this_thread::get_id() ) {
                 map_[key] = std::move( value );
@@ -128,17 +141,21 @@ class map {
 
   private:
 
-    void release_exclusive_token( const key_t &key ) {
+    /// \brief Release exclusive access to the entry of the map.
+    /// \note This method is called from access_token::release() method.
+    void release_exclusive_access( const key_t &key ) {
         std::unique_lock<std::mutex> lock( map_mutex_ );
 
         if ( map_sync_.count( key ) ) {
-            auto &value = map_sync_.at( key );
+            auto &value = map_sync_[key];
 
             value->is_locked = false;
             value->cond_var.notify_one();
         }
     }
 
+    /// \brief This struct contains synchronization information and primitives to
+    /// \brief provide exclusive access.
     struct synchronized_value {
         bool is_locked;
         std::thread::id thread_id;
