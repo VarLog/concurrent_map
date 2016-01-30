@@ -46,7 +46,7 @@ TEST_F( MapTest, should_allow_to_modify_only_if_exclusive_access ) {
     auto key = std::string( "key" );
     auto value = std::string( "value" );
 
-    EXPECT_THROW(map_->set( key, value ), concurrent::invalid_access_exception);
+    EXPECT_THROW( map_->set( key, value ), concurrent::invalid_access_exception );
 }
 
 TEST_F( MapTest, should_emplace_new_value_if_not_exist ) {
@@ -125,7 +125,7 @@ TEST_F( MapTest, should_provide_exclusive_access_get ) {
     EXPECT_STREQ( value.c_str(), actual.c_str() );
 
     /// release token to avoid a deadlock into the destructor of the std::future from std::async()
-    access_token.release();
+    access_token->release();
 }
 
 TEST_F( MapTest, should_provide_exclusive_access_set ) {
@@ -149,7 +149,7 @@ TEST_F( MapTest, should_provide_exclusive_access_set ) {
     EXPECT_STREQ( value.c_str(), actual.c_str() );
 
     /// release token to avoid a deadlock into the destructor of the std::future from std::async()
-    access_token.release();
+    access_token->release();
 }
 
 TEST_F( MapTest, should_provide_exclusive_access_different_keys ) {
@@ -174,7 +174,7 @@ TEST_F( MapTest, should_provide_exclusive_access_different_keys ) {
 
     EXPECT_STREQ( value1.c_str(), actual1.c_str() );
 
-    access_token.release();
+    access_token->release();
 
     auto actual2 = map_->get( key2 );
 
@@ -218,7 +218,7 @@ TEST_F( MapTest, should_provide_exclusive_access_many_keys ) {
 
     EXPECT_STREQ( value1.c_str(), actual2.c_str() );
 
-    access_token1.release();
+    access_token1->release();
 
     status = fut.wait_for( std::chrono::milliseconds( 500 ) );
     EXPECT_TRUE( status == std::future_status::timeout );
@@ -227,7 +227,7 @@ TEST_F( MapTest, should_provide_exclusive_access_many_keys ) {
 
     EXPECT_STREQ( value2.c_str(), actual3.c_str() );
 
-    access_token2.release();
+    access_token2->release();
 
     status = fut.wait_for( std::chrono::milliseconds( 500 ) );
     EXPECT_TRUE( status == std::future_status::ready );
@@ -235,4 +235,16 @@ TEST_F( MapTest, should_provide_exclusive_access_many_keys ) {
     auto actual4 = map_->get( key2 );
 
     EXPECT_STREQ( value2.c_str(), actual4.c_str() );
+}
+
+TEST_F( MapTest, access_token_can_live_longer_than_map ) {
+    auto key = std::string( "key" );
+    auto value = std::string( "value" );
+
+    auto access_token = map_->get_exclusive_access( key );
+    map_->set( key, value );
+
+    map_.reset();
+
+    EXPECT_NO_THROW( access_token->release() );
 }
