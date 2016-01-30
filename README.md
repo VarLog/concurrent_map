@@ -1,11 +1,11 @@
 # concurrent_map
 =================
 
-Simple implementation of the concurrent map on C++11.
+Simple implementation of the concurrent thread-safe map with exclusive access to the entries on C++11.
 
 ## Source structure
 
-* `src/concurrent_map` contains all implementation into `concurrent_map.h` file and example into main.cpp;
+* `src/concurrent_map` contains all the implementation into `concurrent_map.h` file and the example into main.cpp;
 * `src/test` contains Google C++ Testing Framework tests.
 
 ## Build
