@@ -15,7 +15,7 @@ Use CMake:
 ```
 > mkdir build
 > cd build
-> cmake -DENABLE_TESTS=ON ..
+> cmake ..
 > make -j8
 > concurrent_map
 ...
